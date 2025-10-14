@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modview"
+dynamic = ["version"]
+description = 'RNA Modification Viewer'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "lennartbraun", email = "lbraun05@students.uni-mainz.de" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+	"pandas",
+	"pyranges"
+]
+
+[project.urls]
+Documentation = "https://github.com/lennartbraun/modview#readme"
+Issues = "https://github.com/lennartbraun/modview/issues"
+Source = "https://github.com/lennartbraun/modview"
+
+[tool.hatch.version]
+path = "src/modview/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/modview tests}"
+
+[tool.coverage.run]
+source_pkgs = ["modview", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/modview/__about__.py",
+]
+
+[tool.coverage.paths]
+modview = ["src/modview", "*/modview/src/modview"]
+tests = ["tests", "*/modview/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
