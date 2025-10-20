@@ -1,103 +1,55 @@
 import pandas as pd 
-import pyranges as pr 
+import pyranges as pr
+from dataclasses import dataclass 
+from typing import Optional
 import os
 
 
-class BedSample:
-    def __init__(self, name : str, condition=None, modification=None, dataframe=None):
-        self.name = name
-        self.condition = condition
-        self.modification = modification
-        self.dataframe = dataframe
+@dataclass
+class Filterconfig: 
+    """"Configuration for filtering RNA modification data"""
+    min_coverage: int = 20
+    min_modification_frequency: float = 10.0
 
-
-def load_bed_files(bedfiles: list[str], conditions=None, modifications=None, sep="\t") -> dict[str, BedSample]:
-    """
-    Loads multiple .bed files containing RNA modifications called via modkit and returns a dictionary of names mapped to a BedSample.
-
-    bedfiles:list[string] : list with the path to each .bed file
-    conditions:list[string] : conditions for sample proscessing
-    modifications:list[string] : modifications called in the .bed file
-    sep:string, optional: Column seperator (default is tab)
-
-    returns a dictionary: mapping of filename -> BedSample 
-    """
-
-    if not bedfiles:
-        raise ValueError("No .bed files were provided. Please select at least one file.")
-
-    samples = {}
-
-    for path in bedfiles:
-        file_name = os.path.splitext(os.path.basename(path))[0]
-        file_name_lower = file_name.lower()
-        bedsample = BedSample(name=file_name)
-
-        # Detect condition
-        if conditions:
-            for con in conditions:
-                con_lower = str(con).lower()
-                if con_lower in file_name_lower:
-                    bedsample.condition = con
-                    break
+    def __post_init__(self): 
+        """Validate filter parameters"""
+        if not 0 <= self.min_modification_frequency <= 100:
+            raise ValueError("Modification frequency must be between 0 and 100")
+        if self.min_coverage < 0:
+            raise ValueError("Coverage must be non-negative")
         
-        # Detect modification
-        if modifications:
-            for mod in modifications: 
-                mod_lower = str(mod).lower()
-                if mod_lower in file_name_lower:
-                    bedsample.modification = mod
-                    break
+@dataclass
+class FilterStatistics:
+    """Statistics about filtered data"""
+    original_count: int 
+    filtered_count: int 
+    removed_count: int 
+    removal_percentage: float
 
-        # Try loading the dataframe
-        try: 
-            df = pd.read_csv(path, sep=sep, header=None)
-            bedsample.dataframe = df 
-        except FileNotFoundError:
-            print(f"WARNING: File not found: {path}")
-            continue
-        except pd.errors.EmptyDataError:
-            print(f"WARNING: File is empty: {path}")
-            continue
-        except Exception as e:
-            print(f"WARNING: Error reading path: {path}")
-            continue
+@dataclass
+class BedSample:
+    """Represents a single .bed file with RNA modification data"""
+    name: str
+    condition: Optional[str] = None
+    modification: Optional[str] = None
+    dataframe: Optional[pd.DataFrame] = None
+    filter_stats: Optional[FilterStatistics] = None 
 
-        # Maybe use something different than file_name
-        samples[file_name] = bedsample
+    def validate(self) -> bool: 
+        if self.dataframe is None: 
+            return False 
+        if self.DataFrame.empty:
+            raise ValueError(f"Sample {self.name} has empty dataframe")
+        return True
+        
+    def to_pyranges(self) -> pr.PyRanges:
+        """Convert dataframe to PyRanges object for genomic operations"""
+        if self.dataframe is None:
+            raise ValueError(f"Sample {self.name} has no dataframe")
+        return pr.PyRanges(self.dataframe)
 
-    return samples 
+class ModificationPipeline:
+    """Main pipeline for loading and processing RNA modification data"""
 
-def filter_bedfiles(samples: dict[str, BedSample], modification_frequency=10, coverage=20) -> dict[str, BedSample]:
-    """
-    Applies filter to modification frequency and coverage of multiple .bed files
-
-    samples: dict[str, BedSample]: dictionary of loaded .bed files 
-    modification_frequency: Discarding positions with a modification frequency < 10 (default)
-    coverage: Discarding positions with a coverage < 20 (default)
-
-    returns a dictionary: mapping of filename -> filtered BedSample
-    """
-
-    if not samples: 
-        raise ValueError("No files were provided for filtering.")
-    
-    # Defining necessary columns 
-    rename_map = {0: "Chromosome", 1: "Start", 2:"End", 3: "Modified Base Code and Motif", 4: "Score",
-                     5: "Strand", 6: "X", 7: "X", 8: "X", 9: "X", 10: "Percent Modified",
-                     11: "X", 12: "X", 13: "X", 14: "X", 15: "X", 16: "X", 17:"X"}
-    
-    for key in samples: 
-        df = samples[key].dataframe
-        df.rename(columns=rename_map, inplace=True)
-        df.drop(columns=[col for col in df if col == "X"], inplace=True)
-
-        filtered_df = df[(df["Score"] >= coverage) & (df["Percent Modified"] >= modification_frequency)]
-        samples[key].dataframe = filtered_df
-
-    return samples
-    
-
-
-
-
+    # Functions applied to pipeline 
+    # ...
