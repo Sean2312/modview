@@ -152,4 +152,23 @@ class ModificationPipeline:
         return samples 
     
     def standardize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        pass
+        """
+        Standardize column names for .bed files
+
+        df: pd.DataFrame: Raw dataframe from .bed file
+
+        Returns dataframe with standardized column names
+        """
+
+        n_cols = len(df.columns)
+
+        rename_map = {}
+        for i in range(n_cols):
+            if i in self.MODKIT_COLUMNS:
+                rename_map[i] = self.MODKIT_COLUMNS[i]
+        df = df.rename(columns=rename_map)
+
+        essential_cols = ["Chromosome", "Start", "End", "Score", "Percent_Modified"]
+        available_essential = [col for col in essential_cols if col in df.columns]
+
+        return df[available_essential]
