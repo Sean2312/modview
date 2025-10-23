@@ -38,7 +38,7 @@ class BedSample:
     def validate(self) -> bool: 
         if self.dataframe is None: 
             return False 
-        if self.DataFrame.empty:
+        if self.dataframe.empty:
             raise ValueError(f"Sample {self.name} has empty dataframe")
         return True
         
@@ -172,3 +172,85 @@ class ModificationPipeline:
         available_essential = [col for col in essential_cols if col in df.columns]
 
         return df[available_essential]
+    
+    def filter_samples(self, config: Optional[Filterconfig] = None) -> dict[str, BedSample]:
+        """
+        Applies coverage and modification frequency filters to all samples
+
+        config: Filterconfig: Filter configuration. default if not provided
+
+        returns: dict[str, BedSample]: dictionary of filtered samples with statistics
+        """
+
+        if not self.samples:
+            raise ValueError("No samples loaded. Call load_bed_files() first")
+        
+        if config:
+            self.config = config
+
+        for name, sample in self.samples.items():
+            if not sample.validate():
+                print(f"Skipping invalid sample: {name}")
+                continue
+
+            df = sample.dataframe
+            original_count = len(df)
+
+            # Apply filters
+            filtered_df = df[
+                (df["Score"] >= self.config.min_coverage) &
+                (df["Percent_Modified"] >= self.config.min_modification_frequency)
+            ]
+
+            filtered_count = len(filtered_df)
+            removed_count = original_count - filtered_count 
+            removal_percentage = (removed_count / original_count * 100) if original_count > 0 else 0
+
+            # Store statistics
+            sample.filter_stats = FilterStatistics(
+                original_count=original_count,
+                filtered_count=filtered_count,
+                removed_count=removed_count,
+                removal_percentage=removal_percentage
+            )
+
+            sample.dataframe = filtered_df
+            print(f"{name}: {original_count} -> {filtered_count} positions ({removal_percentage:.1f}% removed)")
+        
+        return self.samples
+
+    def load_reference(self, genome_path: str) -> pd.DataFrame:
+        """
+        Loads reference genome annotation file
+
+        genome_path: str: Path to reference genome annotation file
+
+        Returns: pd.DataFrame
+        """
+
+        if not genome_path: 
+            raise ValueError("No reference genome annotation file was provided.")
+        if not os.path.exists(genome_path):
+            raise FileNotFoundError(f"Reference file not found: {genome_path}")
+        
+        try:
+            df = pd.read_csv(genome_path, sep=",")
+
+            if df.empty:
+                raise ValueError(f"Reference file is empty: {genome_path}")
+
+            column_map = {
+                "Chromosome/scaffold name": "Chromosome",
+                "Gene start (bp)": "Start",
+                "Gene end (bp)": "End"
+            }
+        
+            df = df.rename(columns=column_map)
+
+            self.reference = df 
+            print(f"Successfully loaded reference: {genome_path}")
+
+            return df
+
+        except Exception as e:
+            raise ValueError(f"Error loading reference file: {e}")
